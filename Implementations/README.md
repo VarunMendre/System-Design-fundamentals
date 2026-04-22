@@ -13,13 +13,11 @@ Each module focuses on **one concept**, implemented step by step with clear docu
 - Uses **PM2** for process management
 - Demonstrates **traffic distribution** and **failure handling**
 
-👉 Implementation & setup guide:  
-https://github.com/VarunMendre/System-Design-Components/tree/main/load-balancer-demo
+👉 **Implementation & setup guide:** [https://github.com/VarunMendre/System-Design-Components/tree/main/load-balancer-demo](https://github.com/VarunMendre/System-Design-Components/tree/main/load-balancer-demo)
 
 ---
 
 ## 🎯 Goal of This Repo
-
 - Learn system design by **building**, not memorizing
 - Understand **how components interact**
 - Create **interview-ready, explainable projects**
