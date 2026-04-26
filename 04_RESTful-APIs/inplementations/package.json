@@ -1,0 +1,27 @@
+{
+  "name": "rest-api-example",
+  "version": "1.0.0",
+  "description": "A RESTful API example demonstrating core REST principles — resources, HTTP methods, status codes, pagination, versioning, and error handling.",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "keywords": [
+    "rest",
+    "api",
+    "express",
+    "system-design"
+  ],
+  "author": "System Design Guide",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
