@@ -1,0 +1,59 @@
+Phase 1. Problem Overview: 
+
+A CLI payments app (Paytm-like) where users register, 
+send money to other users (wallet) or bank accounts, 
+pay for those transactions via Card/UPI/Netbanking, 
+refund them, and view history. 
+Everything runs in memory behind a command parser, with a DB schema designed on paper.
+
+
+Phase 2. Functional Requirements
+
+1 Register: RegisterUser <phone> <password> creates an account.
+
+2. Update profile: UpdateUser <user_id> <name> <email> , cannot update <phone> once set because its a unique identifier while payments 
+
+3. Wallet transfer: CreateTransaction PAYTM <from> <to> <amount> creates a transaction in PENDING state.
+
+4. Bank transfer: CreateTransaction BANK <from> <acct_no> <ifsc> <amount> creates a transaction in PENDING state.
+
+5. Pay: MakePayment <txn_id> <method> <details> supports Card/UPI/Netbanking. Success moves the transaction to CONFIRMED; failure moves it to CANCELLED.
+
+6. Refund: RefundTransaction <txn_id> returns the money to the original source, as a new refund transaction linked to the original.
+
+7. History: ViewTransactionsHistory <user_id>
+
+
+
+
+
+Phase 3. Core Entities & Relationships
+
+Entities (the nouns from the requirements): 
+
+
+I. Entity -> Purpose 
+
+1. User: Account holder. Has id, phone (unique, immutable), passwordHash, name, email.
+2. Transaction (abstract): A money movement. Has id, amount, type, status, timestamp.
+3. WalletTransaction: Transaction between two app users (fromUser, toUser).
+4. BankTransaction: Transaction from a user to an external bank account (fromUser, BankAccount).
+5. RefundTransaction: Reverses a confirmed transaction (originalTransaction).
+6. Payment:	One payment attempt/instrument for a transaction. Has id, transactionId, amount, mode, status.
+7. BankAccount:	Account number + IFSC (+ holder name)
+8. Enums:  TransactionType, 
+           TransactionStatus (PENDING/CONFIRMED/CANCELLED),
+           PaymentMode (CARD/UPI/NETBANKING), 
+           PaymentStatus 
+           
+II. Relationships -> Cardinality -> How it’s stored
+
+1. User → Transaction(sender):                  1:M   : from_user_id FK on the M side (transactions)
+2. User → WalletTransaction(receiver):          1:M   : to_user_id FK on transactions
+3. Transaction → Payment:                       1:M   : transaction_id FK on payments (₹500 = ₹200 voucher + ₹300 card)
+4. BankTransaction → BankAccount:               M:1	  : bank_account_id FK on transactions
+5. Original Transaction → RefundTransaction:    1:1   : original_transaction_id FK on the refund row (unique)
+
+
+Phase 4. Class Diagram (refer Class-Diagram.png image for class diagram)
+
