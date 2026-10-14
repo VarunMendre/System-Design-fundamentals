@@ -57,3 +57,310 @@ II. Relationships -> Cardinality -> How it’s stored
 
 Phase 4. Class Diagram (refer Class-Diagram.png image for class diagram)
 
+
+Phase 5. Design patterns & SOLID principles 
+
+
+PATTERNS (ONLY WHERE THEY EARN THEIR PLACE)
+===============================================================
+
++------------+--------------------------------------+--------------------------------------------------------------+
+| PATTERN    | WHERE                                | WHY                                                          |
++------------+--------------------------------------+--------------------------------------------------------------+
+| Strategy   | PaymentMethod interface with         | Each payment method validates and processes differently.     |
+|            | CardPayment, UpiPayment, and         | Adding Wallet or EMI later means adding a class without      |
+|            | NetbankingPayment                    | modifying existing payment methods.                          |
++------------+--------------------------------------+--------------------------------------------------------------+
+| Factory    | TransactionFactory.create(type, ...) | The CLI sends a string like PAYTM or BANK. The factory       |
+|            | and PaymentMethodFactory.get(mode)   | creates the correct object, avoiding if/else chains in       |
+|            |                                      | services.                                                    |
++------------+--------------------------------------+--------------------------------------------------------------+
+| Repository | UserRepository, TransactionRepository| Services depend on repository interfaces. Switching to a     |
+|            | and PaymentRepository                | real database later requires changing only the repository    |
+|            | (in-memory implementations)          | implementation.                                              |
++------------+--------------------------------------+--------------------------------------------------------------+
+| Adapter    | Optional: BankGateway interface with | Real banks expose different APIs. Adapters hide those        |
+|            | a mock HdfcAdapter                   | differences behind a common interface. Mention it in an      |
+|            |                                      | interview, but treat implementation as a stretch goal.       |
++------------+--------------------------------------+--------------------------------------------------------------+
+
+
+SOLID PRINCIPLES MAPPED TO THIS DESIGN
+===============================================================
+
++-----------------------------+--------------------------------------------------------------+
+| PRINCIPLE                   | HOW WE APPLY IT                                              |
++-----------------------------+--------------------------------------------------------------+
+| S - Single Responsibility   | User holds data, UserService handles user logic, repositories|
+|                             | handle data storage, and CommandParser parses input only.    |
++-----------------------------+--------------------------------------------------------------+
+| O - Open/Closed             | Adding a new payment mode or transaction type means creating |
+|                             | a new class instead of modifying existing classes.           |
++-----------------------------+--------------------------------------------------------------+
+| L - Liskov Substitution     | Any Transaction subclass can be used wherever a Transaction  |
+|                             | is expected, such as transaction history and refunds,        |
+|                             | provided it respects the base class contract.                |
++-----------------------------+--------------------------------------------------------------+
+| I - Interface Segregation   | Interfaces remain small and focused. PaymentMethod defines   |
+|                             | payment behavior, while each repository exposes only the     |
+|                             | methods relevant to its responsibility.                      |
++-----------------------------+--------------------------------------------------------------+
+| D - Dependency Inversion    | Services receive abstractions (repository and PaymentMethod  |
+|                             | interfaces) through constructors instead of creating         |
+|                             | concrete dependencies internally using new.                  |
++-----------------------------+--------------------------------------------------------------+
+
+
+APPLICATION LAYERS
+===============================================================
+
+CLI (CommandParser)
+        |
+        v
+     Services
+        |
+        v
+Repositories (In-Memory)
+
+
+ADDITIONAL COMPONENTS
+===============================================================
+
+Factories:
+    Create the appropriate transaction or payment-method objects.
+
+PaymentMethod Strategies:
+    Encapsulate the behavior of different payment methods.
+
+OVERALL FLOW
+===============================================================
+
+CLI (CommandParser)
+        |
+        v
+     Services
+        |
+        +----------------------+
+        |                      |
+        v                      v
+  Repositories             Factories
+ (In-Memory)                   |
+                               v
+                     PaymentMethod Strategies
+
+
+
+Phase 6: Class Signature 
+
+typescript:
+
+// ---------- errors ----------
+class AppError extends Error {}               // validation / business-rule failures; parser prints message
+
+// ---------- enums ----------
+enum TransactionType   { WALLET_TO_WALLET, WALLET_TO_BANK, REFUND }
+enum TransactionStatus { PENDING, CONFIRMED, CANCELLED }
+enum PaymentMode       { CARD, UPI, NETBANKING }
+enum PaymentStatus     { PENDING, SUCCESS, FAILED }
+
+// ---------- domain ----------
+class User {
+  id: number; phone: string; passwordHash: string;
+  name?: string; email?: string; balance: number; createdAt: Date;
+  hasFunds(amount: number): boolean;
+  credit(amount: number): void;
+  debit(amount: number): void;               // throws AppError if insufficient
+}
+
+class BankAccount { id: number; accountNumber: string; ifsc: string; holderName?: string; }
+
+abstract class Transaction {
+  id: number; type: TransactionType; amount: number;
+  status: TransactionStatus; createdAt: Date;
+  abstract involves(userId: number): boolean;       // used by history
+  abstract settle(users: UserRepository): void;     // validate first, then move money
+  abstract reverse(users: UserRepository): void;    // validate first, then undo settle
+  confirm(): void;  cancel(): void;                 // only valid from PENDING, else AppError
+  isRefundable(): boolean;                          // CONFIRMED and type !== REFUND
+}
+class WalletTransaction extends Transaction {
+  fromUserId: number; toUserId: number;
+  // settle: sender debited, receiver credited | reverse: receiver debited, sender credited
+}
+class BankTransaction extends Transaction {
+  fromUserId: number; bankAccount: BankAccount;
+  // settle: sender debited | reverse: sender credited (simulated bank return)
+}
+class RefundTransaction extends Transaction {
+  originalTransaction: Transaction;
+  // involves: delegates to original (so both sender and receiver see it in history)
+  // settle: calls originalTransaction.reverse(users) | reverse: throws (can't reverse a refund)
+}
+
+class Payment {
+  id: number; transactionId: number; amount: number;
+  mode: PaymentMode; status: PaymentStatus; createdAt: Date;
+}
+
+// ---------- strategy ----------
+interface PaymentMethod {
+  mode: PaymentMode;
+  pay(amount: number): boolean;              // mock authorization only; true = success
+}
+class CardPayment       implements PaymentMethod { constructor(cardNo: string, expiry: string, cvv: string) }
+class UpiPayment        implements PaymentMethod { constructor(upiId: string) }
+class NetbankingPayment implements PaymentMethod { constructor(bank: string, username: string) }
+// constructors validate detail format, throw AppError if invalid
+
+// ---------- factories ----------
+class PaymentMethodFactory { static create(mode: string, details: string[]): PaymentMethod }
+class TransactionFactory {
+  static wallet(from: number, to: number, amount: number): WalletTransaction
+  static bank(from: number, acct: BankAccount, amount: number): BankTransaction
+  static refund(original: Transaction): RefundTransaction
+}
+
+// ---------- utility ----------
+interface PasswordHasher { hash(plain: string): string; }   // scrypt/sha256 impl injected into UserService
+
+// ---------- repositories (in-memory) ----------
+interface UserRepository {
+  save(u: User): User;                       // assigns id if new; throws AppError on duplicate phone
+  findById(id: number): User | undefined;
+  findByPhone(phone: string): User | undefined;
+}
+interface BankAccountRepository {
+  save(a: BankAccount): BankAccount;
+  findByAccountNumberAndIfsc(accountNumber: string, ifsc: string): BankAccount | undefined;
+}
+interface TransactionRepository {
+  save(t: Transaction): Transaction;
+  findById(id: number): Transaction | undefined;
+  findByUser(userId: number): Transaction[];             // t.involves(userId), includes refunds
+  findRefundOf(originalId: number): RefundTransaction | undefined;
+}
+interface PaymentRepository {
+  save(p: Payment): Payment;
+  findByTransaction(txnId: number): Payment[];
+}
+
+// ---------- services ----------
+class UserService {
+  constructor(users: UserRepository, hasher: PasswordHasher)
+  register(phone: string, password: string): User        // validate, reject duplicate, hash, save
+  updateProfile(userId: number, name: string, email: string): User   // phone untouched
+}
+
+class TransactionService {
+  constructor(users: UserRepository, banks: BankAccountRepository, txns: TransactionRepository)
+  createWallet(from: number, to: number, amount: number): Transaction
+  //   validates: both users exist, amount > 0 (integer paise), from !== to. Saves as PENDING, no money moved
+  createBank(from: number, acctNo: string, ifsc: string, amount: number): Transaction
+  //   validates sender + amount + account format; find-or-create BankAccount; saves as PENDING
+  refund(txnId: number): Transaction
+  //   rules: exists, isRefundable(), findRefundOf() is empty
+  //   flow: TransactionFactory.refund(original) → refund.settle(users) → refund.confirm() → save
+  history(userId: number): Transaction[]                 // user must exist; newest first
+}
+
+class PaymentService {
+  constructor(txns: TransactionRepository, payments: PaymentRepository, users: UserRepository)
+  makePayment(txnId: number, method: PaymentMethod, amount?: number): Payment
+  //   rules: txn exists and is PENDING; amount (default = txn.amount) must equal txn.amount
+  //   flow:  method.pay() fails → save Payment FAILED, txn.cancel()
+  //          method.pay() ok    → try txn.settle(users): save Payment SUCCESS, txn.confirm()
+  //                               if settle throws (e.g. insufficient balance): Payment FAILED, txn.cancel()
+}
+
+// ---------- entry point ----------
+class CommandParser {
+  constructor(userSvc: UserService, txnSvc: TransactionService, paymentSvc: PaymentService)
+  execute(line: string): string                          // catches AppError → returns its message
+}
+// main.ts: stdin line by line → parser.execute → print
+
+ 
+  
+Phase 7: Build Plan
+ 
+  
+I. Project structure: 
+
+src/
+  errors/        AppError.ts
+  domain/        enums, User, BankAccount, Transaction (+3 subclasses), Payment
+  repositories/  interfaces + in-memory implementations
+  services/      UserService, TransactionService, PaymentService
+  payments/      PaymentMethod + Card/Upi/Netbanking + factory
+  factories/     TransactionFactory
+  utils/         PasswordHasher, money helpers
+  cli/           CommandParser
+  main.ts
+tests/
+
+
+PAYMENT SYSTEM LLD — IMPLEMENTATION ROADMAP
+===============================================================
+
++-------+----------------------+-----------------------------------------------+--------------------------------------+
+| STEP  | WHAT WE BUILD        | COMPONENTS                                     | WHAT WE TEST                         |
++-------+----------------------+-----------------------------------------------+--------------------------------------+
+| 0     | Setup                | package.json, tsconfig.json, folder structure, | npm test runs successfully           |
+|       |                      | AppError, enums                                |                                      |
++-------+----------------------+-----------------------------------------------+--------------------------------------+
+| 1     | Users                | User, PasswordHasher, UserRepository           | Register user, reject duplicate      |
+|       |                      | (in-memory), UserService                       | phone, update profile without        |
+|       |                      |                                               | changing phone                       |
++-------+----------------------+-----------------------------------------------+--------------------------------------+
+| 2     | CLI skeleton         | CommandParser, main.ts, RegisterUser,          | Enter commands in the terminal       |
+|       |                      | UpdateUser                                     | and verify responses                 |
++-------+----------------------+-----------------------------------------------+--------------------------------------+
+| 3     | Transactions         | Transaction + 3 subclasses, TransactionFactory,| Create wallet/bank transactions      |
+|       |                      | BankAccount + repositories, TransactionService | and verify PENDING status            |
++-------+----------------------+-----------------------------------------------+--------------------------------------+
+| 4     | Payments             | PaymentMethod strategies + factory, Payment,   | Successful payment confirms and      |
+|       |                      | PaymentRepository, PaymentService, settle()    | settles; failed payment cancels      |
++-------+----------------------+-----------------------------------------------+--------------------------------------+
+| 5     | Refund + History     | RefundTransaction, reverse(),                  | Refund confirmed transaction, reject|
+|       |                      | TransactionService.refund/history              | duplicate refund, view history      |
++-------+----------------------+-----------------------------------------------+--------------------------------------+
+
+
+IMPLEMENTATION RULES
+===============================================================
+
+1. Complete each step before moving to the next.
+2. Keep repositories in memory; do not add a real database yet.
+3. Write unit tests for each business rule.
+4. Test failure cases, not only successful flows.
+5. Keep the CLI thin; business logic belongs in services.
+6. Do not add more design patterns unless a real requirement needs them.
+
+
+SUGGESTED TEST CASES
+===============================================================
+
+STEP 1 — USERS
+    [ ] Register a new user.
+    [ ] Reject duplicate phone numbers.
+    [ ] Store a password hash, not the plain password.
+    [ ] Update name and email without changing phone.
+
+STEP 3 — TRANSACTIONS
+    [ ] Create a wallet transfer in PENDING state.
+    [ ] Create a bank transfer in PENDING state.
+    [ ] Reject nonexistent users and invalid amounts.
+    [ ] Verify balances remain unchanged while PENDING.
+
+STEP 4 — PAYMENTS
+    [ ] Successful payment confirms and settles the transaction.
+    [ ] Failed payment cancels the transaction.
+    [ ] Reject payment on a non-PENDING transaction.
+    [ ] Insufficient balance does not partially update balances.
+
+STEP 5 — REFUNDS AND HISTORY
+    [ ] Refund a confirmed transaction.
+    [ ] Reject a refund of a PENDING or CANCELLED transaction.
+    [ ] Reject a duplicate refund.
+    [ ] Ensure failed refunds leave balances unchanged.
+    [ ] Verify sender, receiver, and refund history.
