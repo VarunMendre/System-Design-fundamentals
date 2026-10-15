@@ -29,4 +29,3 @@ export class InMemoryUserRepository implements UserRepository {
     return this.byPhone.get(phone);
   }
 }
-

@@ -20,15 +20,12 @@ export class User {
   credit(amount: number): void {
     assertValidAmount(amount);
     this.balance += amount;
-    }
-    
-    debit(amount: number): void {
-        assertValidAmount(amount);
-        if (!this.hasFunds(amount))
-            throw new AppError("Insufficient balance");
+  }
 
-        this.balance -= amount;
-    }
+  debit(amount: number): void {
+    assertValidAmount(amount);
+    if (!this.hasFunds(amount)) throw new AppError("Insufficient balance");
+
+    this.balance -= amount;
+  }
 }
-
-
