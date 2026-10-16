@@ -1,13 +1,20 @@
 import * as readline from "node:readline";
 import { CommandParser } from "./cli/CommandParser";
 import { UserService } from "./services/UserService";
+import { TransactionService } from "./services/TransactionService";
 import { InMemoryUserRepository } from "./repositories/InMemoryUserRepository";
+import { InMemoryBankAccountRepository } from "./repositories/InMemoryBankAccountRepository";
+import { InMemoryTransactionRepository } from "./repositories/InMemoryTransactionRepository";
 import { ScryptPasswordHasher } from "./utils/PasswordHasher";
 
-// Composition root: the only place where concrete classes are wired together.
+// Composition root
 const userRepo = new InMemoryUserRepository();
+const bankRepo = new InMemoryBankAccountRepository();
+const txnRepo = new InMemoryTransactionRepository();
+
 const userSvc = new UserService(userRepo, new ScryptPasswordHasher());
-const parser = new CommandParser(userSvc);
+const txnSvc = new TransactionService(userRepo, bankRepo, txnRepo);
+const parser = new CommandParser(userSvc, txnSvc);
 
 const rl = readline.createInterface({
   input: process.stdin,

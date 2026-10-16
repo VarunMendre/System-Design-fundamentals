@@ -3,16 +3,22 @@ import { CommandParser } from "../src/cli/CommandParser";
 import { UserService } from "../src/services/UserService";
 import { InMemoryUserRepository } from "../src/repositories/InMemoryUserRepository";
 import { ScryptPasswordHasher } from "../src/utils/PasswordHasher";
+import { TransactionService } from "../src/services/TransactionService";
+import { InMemoryBankAccountRepository } from "../src/repositories/InMemoryBankAccountRepository";
+import { InMemoryTransactionRepository } from "../src/repositories/InMemoryTransactionRepository";
 
 describe("CommandParser", () => {
   let cli: CommandParser;
 
   beforeEach(() => {
-    const svc = new UserService(
-      new InMemoryUserRepository(),
-      new ScryptPasswordHasher(),
+    const users = new InMemoryUserRepository();
+    const userSvc = new UserService(users, new ScryptPasswordHasher());
+    const txnSvc = new TransactionService(
+      users,
+      new InMemoryBankAccountRepository(),
+      new InMemoryTransactionRepository(),
     );
-    cli = new CommandParser(svc);
+    cli = new CommandParser(userSvc, txnSvc);
   });
 
   it("registers a user", () => {
@@ -54,5 +60,23 @@ describe("CommandParser", () => {
   it("handles unknown and empty commands", () => {
     expect(cli.execute("Foo bar")).toBe("Unknown command: Foo");
     expect(cli.execute("   ")).toBe("");
+  });
+
+  it("creates a wallet transaction in PENDING state", () => {
+    cli.execute("RegisterUser 9876543210 secret1");
+    cli.execute("RegisterUser 9876543211 secret2");
+    expect(cli.execute("CreateTransaction PAYTM 1 2 500")).toBe(
+      "Transaction created. id=1 type=WALLET_TO_WALLET amount=₹500.00 status=PENDING",
+    );
+  });
+
+  it("creates a bank transaction and validates the amount format", () => {
+    cli.execute("RegisterUser 9876543210 secret1");
+    expect(
+      cli.execute("CreateTransaction BANK 1 123456789012 HDFC0001234 250.50"),
+    ).toContain("amount=₹250.50");
+    expect(
+      cli.execute("CreateTransaction BANK 1 123456789012 HDFC0001234 abc"),
+    ).toBe("Error: Invalid amount: abc");
   });
 });
