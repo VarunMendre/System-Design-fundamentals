@@ -30,19 +30,20 @@ export class UserService {
   updateProfile(userId: number, name: string, email: string): User {
     const user = this.users.findById(userId);
 
-      if (!user)
-          throw new AppError(`User ${userId} not found`);
-      
-      if (!name || !name.trim())
-          throw new AppError("Name cannot be empty");
-      
-      if (!EMAIL_REG.test(email))
-          throw new AppError("Invalid email");
-      
-      user.name = name.trim();
-      user.email = email;
-      return this.users.save(user);
+    if (!user) throw new AppError(`User ${userId} not found`);
+
+    if (!name || !name.trim()) throw new AppError("Name cannot be empty");
+
+    if (!EMAIL_REG.test(email)) throw new AppError("Invalid email");
+
+    user.name = name.trim();
+    user.email = email;
+    return this.users.save(user);
+  }
+
+  getUser(userId: number): User {
+    const user = this.users.findById(userId);
+    if (!user) throw new AppError(`User ${userId} not found`);
+    return user;
   }
 }
-
-

@@ -1,24 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { CommandParser } from "../src/cli/CommandParser";
-import { UserService } from "../src/services/UserService";
-import { InMemoryUserRepository } from "../src/repositories/InMemoryUserRepository";
-import { ScryptPasswordHasher } from "../src/utils/PasswordHasher";
-import { TransactionService } from "../src/services/TransactionService";
-import { InMemoryBankAccountRepository } from "../src/repositories/InMemoryBankAccountRepository";
-import { InMemoryTransactionRepository } from "../src/repositories/InMemoryTransactionRepository";
+import { buildApp } from "./helper";
 
 describe("CommandParser", () => {
   let cli: CommandParser;
 
   beforeEach(() => {
-    const users = new InMemoryUserRepository();
-    const userSvc = new UserService(users, new ScryptPasswordHasher());
-    const txnSvc = new TransactionService(
-      users,
-      new InMemoryBankAccountRepository(),
-      new InMemoryTransactionRepository(),
-    );
-    cli = new CommandParser(userSvc, txnSvc);
+    cli = buildApp().cli;
   });
 
   it("registers a user", () => {

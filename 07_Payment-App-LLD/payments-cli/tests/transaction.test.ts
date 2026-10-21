@@ -9,6 +9,8 @@ import { STARTING_BALANCE } from '../src/config/constants';
 import { TransactionStatus } from '../src/domain/enums';
 import { TransactionFactory } from '../src/factories/TransactionFactory';
 import { BankAccount } from '../src/domain/BankAccount';
+import { buildApp } from './helper'; 
+
 
 let users: InMemoryUserRepository;
 let txnSvc: TransactionService;
@@ -16,11 +18,11 @@ let alice: number;
 let bob: number;
 
 beforeEach(() => {
-  users = new InMemoryUserRepository();
-  const userSvc = new UserService(users, new ScryptPasswordHasher());
-  txnSvc = new TransactionService(users, new InMemoryBankAccountRepository(), new InMemoryTransactionRepository());
-  alice = userSvc.register('9876543210', 'secret1').id;
-  bob = userSvc.register('9876543211', 'secret2').id;
+  const app = buildApp();
+  users = app.users;
+  txnSvc = app.txnSvc;
+  alice = app.userSvc.register("9876543210", "secret1").id;
+  bob = app.userSvc.register("9876543211", "secret2").id;
 });
 
 const bal = (id: number) => users.findById(id)!.balance;

@@ -6,15 +6,19 @@ import { InMemoryUserRepository } from "./repositories/InMemoryUserRepository";
 import { InMemoryBankAccountRepository } from "./repositories/InMemoryBankAccountRepository";
 import { InMemoryTransactionRepository } from "./repositories/InMemoryTransactionRepository";
 import { ScryptPasswordHasher } from "./utils/PasswordHasher";
+import { PaymentService } from "./services/PaymentService";
+import { InMemoryPaymentRepository } from "./repositories/InMemoryPaymentRepository";
 
 // Composition root
 const userRepo = new InMemoryUserRepository();
 const bankRepo = new InMemoryBankAccountRepository();
 const txnRepo = new InMemoryTransactionRepository();
+const paymentRepo = new InMemoryPaymentRepository();
 
 const userSvc = new UserService(userRepo, new ScryptPasswordHasher());
 const txnSvc = new TransactionService(userRepo, bankRepo, txnRepo);
-const parser = new CommandParser(userSvc, txnSvc);
+const paymentSvc = new PaymentService(txnRepo, paymentRepo, userRepo);
+const parser = new CommandParser(userSvc, txnSvc, paymentSvc);
 
 const rl = readline.createInterface({
   input: process.stdin,
