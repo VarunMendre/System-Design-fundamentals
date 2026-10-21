@@ -20,10 +20,12 @@ const txnSvc = new TransactionService(userRepo, bankRepo, txnRepo);
 const paymentSvc = new PaymentService(txnRepo, paymentRepo, userRepo);
 const parser = new CommandParser(userSvc, txnSvc, paymentSvc);
 
+const interactive = Boolean(process.stdin.isTTY);
+
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
-  prompt: "> ",
+  prompt: interactive ? "> " : "",
 });
 rl.prompt();
 
