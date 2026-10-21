@@ -1,4 +1,8 @@
-import { STARTING_BALANCE } from "../config/constants";
+import {
+  STARTING_BALANCE,
+  MAX_NAME_LENGTH,
+  MAX_EMAIL_LENGTH,
+} from "../config/constants";
 import { User } from "../domain/User";
 import { AppError } from "../errors/AppError";
 import { UserRepository } from "../repositories/UserRepository";
@@ -31,9 +35,12 @@ export class UserService {
     const user = this.users.findById(userId);
 
     if (!user) throw new AppError(`User ${userId} not found`);
-
     if (!name || !name.trim()) throw new AppError("Name cannot be empty");
+    if (name.trim().length > MAX_NAME_LENGTH)
+      throw new AppError(`Name cannot exceed ${MAX_NAME_LENGTH} characters`);
 
+    if (email.length > MAX_EMAIL_LENGTH)
+      throw new AppError(`Email cannot exceed ${MAX_EMAIL_LENGTH} characters`);
     if (!EMAIL_REG.test(email)) throw new AppError("Invalid email");
 
     user.name = name.trim();

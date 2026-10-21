@@ -140,8 +140,8 @@ export class CommandParser {
   }
 
   private parseId(raw: string, label: string): number {
-    const n = Number(raw);
-    if (!Number.isInteger(n) || n <= 0)
+    const n = /^\d+$/.test(raw) ? Number(raw) : NaN; // digits only: rejects 1e2, 0x10, -1, 1.5
+    if (!Number.isSafeInteger(n) || n <= 0)
       throw new AppError(`Invalid ${label}: ${raw}`);
     return n;
   }
